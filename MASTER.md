@@ -1,8 +1,10 @@
-# 🚀 WhatsApp Business SaaS Platform - Master Documentation
+# 🚀 IntraFlow - Master Documentation
 
-## Welcome!
+> **Automate Your Internal Communications with AI**
 
-This is the **central hub** for the complete WhatsApp Business Agentic Workflow SaaS platform. Everything you need is organized here.
+## Welcome to IntraFlow!
+
+This is the **central hub** for IntraFlow, a multi-tenant SaaS platform for WhatsApp Business automation with visual workflow builder and AI agents. Everything you need is organized here.
 
 ---
 

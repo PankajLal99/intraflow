@@ -1,8 +1,10 @@
-# Project Summary - WhatsApp Business Agentic Workflow System
+# IntraFlow - Project Summary
+
+> **Automate Your Internal Communications with AI**
 
 ## 🎯 What Has Been Built
 
-This is a **complete, production-ready WhatsApp Business automation system** that uses AI agents to handle customer interactions autonomously. It's designed to be cost-effective, scalable, and easy to deploy.
+**IntraFlow** is a **complete, production-ready multi-tenant SaaS platform** for WhatsApp Business automation. It enables businesses to build custom conversation flows visually, use AI agents to handle customer interactions autonomously, and manage everything from a single dashboard. Designed to be cost-effective, scalable, and easy to deploy.
 
 ## 📦 What's Included
 

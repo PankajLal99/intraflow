@@ -1,6 +1,13 @@
-# WhatsApp Business Agentic Workflow System
+# IntraFlow
 
-A comprehensive, scalable WhatsApp Business automation system with dynamic AI-powered agentic workflows, monitoring, and logging capabilities. Built with OpenWA, LangChain, LangGraph, and modern observability tools.
+> **Automate Your Internal Communications with AI**
+
+A comprehensive, multi-tenant SaaS platform for WhatsApp Business automation with visual workflow builder, AI-powered agents, and enterprise-grade monitoring. Built with OpenWA, LangChain, LangGraph, and modern observability tools.
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
+[![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
+[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 
 ## 🎯 Project Overview
 
