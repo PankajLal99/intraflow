@@ -15,6 +15,7 @@ import uvicorn
 from src.config.settings import settings
 from src.api import routes
 from src.api import auth_routes
+from src.api import workflow_routes
 from src.webhooks import webhook_router
 from src.database import init_db, close_db
 from src.services.queue_service import start_worker, close_redis
@@ -86,6 +87,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 app.include_router(webhook_router)
 app.include_router(auth_routes.router, prefix="/api/v1")
+app.include_router(workflow_routes.router, prefix="/api/v1")
 app.include_router(routes.router)
 
 metrics_app = make_asgi_app()

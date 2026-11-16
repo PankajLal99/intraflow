@@ -106,7 +106,16 @@ async def process_message(message_data: Dict[str, Any]):
             message_queue_counter.labels(status="no_tenant").inc()
             return
         
-        parent_agent = ParentAgent()
+        from src.agents.parent_agent import ParentAgent, ParentAgentConfig
+        
+        config = ParentAgentConfig(
+            enable_safety_check=True,
+            enable_content_filter=True,
+            enable_context_check=True,
+            enable_rate_limiting=True
+        )
+        parent_agent = ParentAgent(config=config)
+        
         supervision_result = await parent_agent.supervise(
             message=body,
             context={
