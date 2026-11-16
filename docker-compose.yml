@@ -1,0 +1,227 @@
+version: '3.8'
+
+services:
+  # OpenWA - WhatsApp Gateway
+  openwa:
+    image: rmyndharis/openwa:latest
+    container_name: openwa-gateway
+    ports:
+      - "2785:2785"
+    environment:
+      - NODE_ENV=production
+      - PORT=2785
+      - DATABASE_TYPE=postgresql
+      - DATABASE_URL=postgresql://whatsapp:whatsapp123@postgres:5432/openwa
+      - STORAGE_TYPE=local
+      - STORAGE_LOCAL_PATH=/app/media
+      - REDIS_ENABLED=true
+      - REDIS_URL=redis://redis:6379
+      - ENABLE_SWAGGER=true
+      # Webhook configuration - points to our webhook handler
+      - WEBHOOK_URL=http://webhook-handler:3000/webhook
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET:-change-this-secret-in-production}
+    volumes:
+      - openwa-sessions:/app/sessions
+      - openwa-media:/app/media
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - whatsapp-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:2785/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Webhook Handler - Node.js service
+  webhook-handler:
+    build:
+      context: ./webhook-handler
+      dockerfile: Dockerfile
+    container_name: webhook-handler
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - OPENWA_WEBHOOK_SECRET=${WEBHOOK_SECRET:-change-this-secret-in-production}
+      - OPENWA_API_URL=http://openwa:2785/api
+      - OPENWA_API_KEY=${OPENWA_API_KEY:-your-openwa-api-key}
+      - AGENT_ORCHESTRATOR_URL=http://agent-orchestrator:8000
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://whatsapp:whatsapp123@postgres:5432/whatsapp
+      - MAX_RETRIES=3
+      - RATE_LIMIT_PER_MINUTE=60
+    depends_on:
+      - postgres
+      - redis
+      - agent-orchestrator
+    networks:
+      - whatsapp-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Agent Orchestrator - Python/LangChain service
+  agent-orchestrator:
+    build:
+      context: ./agent-orchestrator
+      dockerfile: Dockerfile
+    container_name: agent-orchestrator
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - PORT=8000
+      - DATABASE_URL=postgresql://whatsapp:whatsapp123@postgres:5432/whatsapp
+      - REDIS_URL=redis://redis:6379
+      # LLM Configuration - Add your API keys here
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - LLM_PROVIDER=${LLM_PROVIDER:-openai}
+      - LLM_MODEL=${LLM_MODEL:-gpt-4o-mini}
+      - LLM_TEMPERATURE=0.7
+      - MAX_TOKENS=500
+      # External APIs (for your business logic)
+      - PRODUCT_API_URL=${PRODUCT_API_URL:-}
+      - PRODUCT_API_KEY=${PRODUCT_API_KEY:-}
+      - ORDER_API_URL=${ORDER_API_URL:-}
+      - ORDER_API_KEY=${ORDER_API_KEY:-}
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - whatsapp-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres-db
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=whatsapp
+      - POSTGRES_PASSWORD=whatsapp123
+      - POSTGRES_DB=whatsapp
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - whatsapp-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U whatsapp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: redis-cache
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    networks:
+      - whatsapp-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Prometheus - Metrics Collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    networks:
+      - whatsapp-net
+    restart: unless-stopped
+
+  # Grafana - Dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_INSTALL_PLUGINS=redis-datasource
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    networks:
+      - whatsapp-net
+    restart: unless-stopped
+
+  # Loki - Log Aggregation
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./monitoring/loki-config.yaml:/etc/loki/local-config.yaml
+      - loki-data:/loki
+    networks:
+      - whatsapp-net
+    restart: unless-stopped
+
+  # Promtail - Log Shipper
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    volumes:
+      - ./monitoring/promtail-config.yaml:/etc/promtail/config.yaml
+      - /var/log:/var/log
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/config.yaml
+    depends_on:
+      - loki
+    networks:
+      - whatsapp-net
+    restart: unless-stopped
+
+networks:
+  whatsapp-net:
+    driver: bridge
+
+volumes:
+  openwa-sessions:
+  openwa-media:
+  postgres-data:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+  loki-data:

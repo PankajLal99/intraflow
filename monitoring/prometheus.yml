@@ -1,0 +1,35 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'whatsapp-agents'
+    env: 'production'
+
+scrape_configs:
+  - job_name: 'webhook-handler'
+    static_configs:
+      - targets: ['webhook-handler:3000']
+        labels:
+          service: 'webhook-handler'
+
+  - job_name: 'agent-orchestrator'
+    static_configs:
+      - targets: ['agent-orchestrator:8000']
+        labels:
+          service: 'agent-orchestrator'
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+        labels:
+          service: 'redis'
+
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']
+        labels:
+          service: 'postgres'

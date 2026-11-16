@@ -1,0 +1,69 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dist/
+build/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Docker
+.dockerignore
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# Monitoring data
+prometheus-data/
+grafana-data/
+loki-data/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Coverage
+coverage/
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Build artifacts
+*.egg-info/
+dist/
+build/
