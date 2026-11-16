@@ -4,6 +4,7 @@ Main FastAPI application
 """
 
 import logging
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
@@ -13,6 +14,10 @@ import uvicorn
 
 from src.config.settings import settings
 from src.api import routes
+from src.api import auth_routes
+from src.webhooks import webhook_router
+from src.database import init_db, close_db
+from src.services.queue_service import start_worker, close_redis
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,19 +30,28 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler"""
-    logger.info("Starting Agent Orchestrator")
+    logger.info("Starting IntraFlow Agent Orchestrator")
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     logger.info(f"LLM Provider: {settings.LLM_PROVIDER}")
     logger.info(f"LLM Model: {settings.LLM_MODEL}")
     
+    await init_db()
+    logger.info("Database initialized")
+    
+    worker_task = asyncio.create_task(start_worker())
+    logger.info("Message queue worker started")
+    
     yield
     
-    logger.info("Shutting down Agent Orchestrator")
+    worker_task.cancel()
+    await close_redis()
+    await close_db()
+    logger.info("Shutting down IntraFlow Agent Orchestrator")
 
 
 app = FastAPI(
-    title="WhatsApp Agent Orchestrator",
-    description="AI Agent orchestration service for WhatsApp Business automation",
+    title="IntraFlow Agent Orchestrator",
+    description="Multi-tenant WhatsApp Business AI automation platform",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -70,6 +84,8 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 
+app.include_router(webhook_router)
+app.include_router(auth_routes.router, prefix="/api/v1")
 app.include_router(routes.router)
 
 metrics_app = make_asgi_app()
@@ -80,11 +96,17 @@ app.mount("/metrics", metrics_app)
 async def root():
     """Root endpoint"""
     return {
-        "service": "WhatsApp Agent Orchestrator",
+        "service": "IntraFlow Agent Orchestrator",
         "version": "1.0.0",
         "status": "running",
         "llm_provider": settings.LLM_PROVIDER,
-        "llm_model": settings.LLM_MODEL
+        "llm_model": settings.LLM_MODEL,
+        "features": [
+            "Multi-tenant WhatsApp automation",
+            "Parent Agent guardrails",
+            "Visual workflow execution",
+            "LangChain agent orchestration"
+        ]
     }
 
 
@@ -93,7 +115,8 @@ async def health_check():
     """Health check endpoint"""
     return {
         "status": "healthy",
-        "service": "agent-orchestrator"
+        "service": "intraflow-orchestrator",
+        "version": "1.0.0"
     }
 
 

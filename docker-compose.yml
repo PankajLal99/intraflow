@@ -17,8 +17,8 @@ services:
       - REDIS_ENABLED=true
       - REDIS_URL=redis://redis:6379
       - ENABLE_SWAGGER=true
-      # Webhook configuration - points to our webhook handler
-      - WEBHOOK_URL=http://webhook-handler:3000/webhook
+      # Webhook configuration - points directly to FastAPI service
+      - WEBHOOK_URL=http://agent-orchestrator:8000/webhook
       - WEBHOOK_SECRET=${WEBHOOK_SECRET:-change-this-secret-in-production}
     volumes:
       - openwa-sessions:/app/sessions
@@ -35,52 +35,30 @@ services:
       timeout: 10s
       retries: 3
 
-  # Webhook Handler - Node.js service
-  webhook-handler:
-    build:
-      context: ./webhook-handler
-      dockerfile: Dockerfile
-    container_name: webhook-handler
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - OPENWA_WEBHOOK_SECRET=${WEBHOOK_SECRET:-change-this-secret-in-production}
-      - OPENWA_API_URL=http://openwa:2785/api
-      - OPENWA_API_KEY=${OPENWA_API_KEY:-your-openwa-api-key}
-      - AGENT_ORCHESTRATOR_URL=http://agent-orchestrator:8000
-      - REDIS_URL=redis://redis:6379
-      - DATABASE_URL=postgresql://whatsapp:whatsapp123@postgres:5432/whatsapp
-      - MAX_RETRIES=3
-      - RATE_LIMIT_PER_MINUTE=60
-    depends_on:
-      - postgres
-      - redis
-      - agent-orchestrator
-    networks:
-      - whatsapp-net
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # Agent Orchestrator - Python/LangChain service
+  # Agent Orchestrator - Consolidated FastAPI service
   agent-orchestrator:
     build:
       context: ./agent-orchestrator
       dockerfile: Dockerfile
-    container_name: agent-orchestrator
+    container_name: intraflow-orchestrator
     ports:
       - "8000:8000"
     environment:
       - ENVIRONMENT=production
       - PORT=8000
+      - DEBUG=false
+      # Database
       - DATABASE_URL=postgresql://whatsapp:whatsapp123@postgres:5432/whatsapp
+      # Redis
       - REDIS_URL=redis://redis:6379
-      # LLM Configuration - Add your API keys here
+      - REDIS_QUEUE_NAME=whatsapp_messages
+      # Security
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET:-change-this-secret-in-production}
+      - JWT_SECRET=${JWT_SECRET:-change-this-jwt-secret-in-production}
+      # OpenWA
+      - OPENWA_API_URL=http://openwa:2785/api
+      - OPENWA_API_KEY=${OPENWA_API_KEY:-}
+      # LLM Configuration
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
@@ -88,11 +66,14 @@ services:
       - LLM_MODEL=${LLM_MODEL:-gpt-4o-mini}
       - LLM_TEMPERATURE=0.7
       - MAX_TOKENS=500
-      # External APIs (for your business logic)
+      # External APIs
       - PRODUCT_API_URL=${PRODUCT_API_URL:-}
       - PRODUCT_API_KEY=${PRODUCT_API_KEY:-}
       - ORDER_API_URL=${ORDER_API_URL:-}
       - ORDER_API_KEY=${ORDER_API_KEY:-}
+      # Rate Limiting
+      - RATE_LIMIT_PER_MINUTE=60
+      - MAX_RETRIES=3
     depends_on:
       - postgres
       - redis
